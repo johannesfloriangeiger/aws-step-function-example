@@ -15,7 +15,37 @@ THIRD_BUCKET=...
 
 ## Install
 
-### Buckets 
+### Terraform
+
+Install the Terraform scripts:
+
+```
+AWS_SDK_LOAD_CONFIG=1 AWS_PROFILE=$PROFILE terraform -chdir=terraform init
+AWS_SDK_LOAD_CONFIG=1 AWS_PROFILE=$PROFILE terraform -chdir=terraform apply --var first-bucket=$FIRST_BUCKET --var second-bucket=$SECOND_BUCKET --var third-bucket=$THIRD_BUCKET
+```
+
+Add the file `chunk.txt` to the first and second bucket:
+
+```
+echo -n "Hello" | aws s3 cp --profile $PROFILE - s3://$FIRST_BUCKET/chunk.txt
+echo -n "World" | aws s3 cp --profile $PROFILE - s3://$SECOND_BUCKET/chunk.txt
+```
+
+Deploy the Lambda:
+
+```
+echo "exports.handler = async (event) => {
+    return event.tokens.join(' ')
+};" > index.js && zip lambda.zip index.js
+
+aws --profile $PROFILE lambda update-function-code --function-name concat --zip-file fileb://lambda.zip --publish
+
+rm index.js lambda.zip
+```
+
+### Manual
+
+#### Buckets 
 
 Create the first bucket and add the file `chunk.txt`:
 
@@ -37,9 +67,9 @@ Create the third bucket:
 aws --profile $PROFILE s3 mb s3://$THIRD_BUCKET
 ```
 
-### Roles
+#### Roles
 
-#### State machine
+##### State machine
 
 Create the basic role for the state machine:
 
@@ -107,7 +137,7 @@ WRITE_POLICY_ARN=$(aws --profile $PROFILE iam create-policy --policy-name Concat
 aws --profile $PROFILE iam attach-role-policy --role-name Concat --policy-arn $WRITE_POLICY_ARN
 ```
 
-#### Lambda
+##### Lambda
 
 Create the basic role for the lambda:
 
@@ -126,7 +156,7 @@ LAMBDA_ROLE_ARN=$(aws --profile $PROFILE iam create-role --role-name Lambda --as
 }' | jq -r '.Role.Arn')
 ```
 
-### Lambda
+#### Lambda
 
 Create a lambda that returns a simple concatenation of the parameter list `tokens`:
 
@@ -140,7 +170,7 @@ LAMBDA_ARN=$(aws --profile $PROFILE lambda create-function --function-name Conca
 rm index.js lambda.zip
 ```
 
-### State machine
+#### State machine
 
 Create the state machine:
 
